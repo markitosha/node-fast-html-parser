@@ -158,13 +158,13 @@ var kMarkupPattern = (function () {
      * Make state object from params
      * @param {string} status               next parser status
      * @param {Array}  match                array which contains parsed values
-     * @param {Number} openedBracketCounter counter of unclosed tag brackets
+     * @param {Number} ignoreAll flag to ignore all special symbols in attribute value
      */
-    function makeState(status, match, openedBracketCounter) {
+    function makeState(status, match, ignoreAll) {
         return {
             status: status,
             match: match,
-            openedBracketCounter: openedBracketCounter
+            ignoreAll: ignoreAll || false
         };
     }
 
@@ -179,10 +179,10 @@ var kMarkupPattern = (function () {
     function initial(match, sym, index) {
         if (sym === '<') {
             match['index'] = index;
-            return makeState(TAG_OPENED, match, 1);
+            return makeState(TAG_OPENED, match);
         }
 
-        return makeState(INITIAL, match, 0);
+        return makeState(INITIAL, match);
     }
 
     /**
@@ -197,7 +197,7 @@ var kMarkupPattern = (function () {
             match[TAG_NAME] += sym;
         }
 
-        return makeState(READ_TAG_NAME, match, 1);
+        return makeState(READ_TAG_NAME, match);
     }
 
     /**
@@ -208,14 +208,14 @@ var kMarkupPattern = (function () {
     function readTagName(match, sym) {
         switch (sym) {
             case ' ':
-                return makeState(READ_ATTRIBUTES, match, 1);
+                return makeState(READ_ATTRIBUTES, match);
             case '/':
-                return makeState(IS_SELF_CLOSING, match, 1);
+                return makeState(IS_SELF_CLOSING, match);
             case '>':
-                return makeState(TAG_CLOSE, match, 1);
+                return makeState(TAG_CLOSE, match);
             default:
                 match[TAG_NAME] += sym;
-                return makeState(READ_TAG_NAME, match, 1);
+                return makeState(READ_TAG_NAME, match);
         }
     }
 
@@ -223,30 +223,30 @@ var kMarkupPattern = (function () {
      * Processing of the characters in attributes
      * @param {Array}   match   array which contains parsed values
      * @param {string}  sym     processed character
-     * @param {Number} openedBracketCounter counter of unclosed tag brackets
+     * @param {Number} ignoreAll ignore all special symbols in attribute value
      */
-    function readAttributes(match, sym, openedBracketCounter) {
+    function readAttributes(match, sym, ignoreAll) {
         switch (sym) {
             case '/':
-                if (openedBracketCounter === 1) {
-                    return makeState(IS_SELF_CLOSING, match, openedBracketCounter);
+                if (!ignoreAll) {
+                    return makeState(IS_SELF_CLOSING, match, ignoreAll);
                 }
 
                 match[ATTRIBUTES] += sym;
-                return makeState(READ_ATTRIBUTES, match, openedBracketCounter);
+                return makeState(READ_ATTRIBUTES, match, ignoreAll);
             case '>':
-                if (--openedBracketCounter) {
+                if (ignoreAll) {
                     match[ATTRIBUTES] += sym;
-                    return makeState(READ_ATTRIBUTES, match, openedBracketCounter);
+                    return makeState(READ_ATTRIBUTES, match, ignoreAll);
                 }
 
-                return makeState(TAG_CLOSE, match, openedBracketCounter);
-            case '<':
-                ++openedBracketCounter;
+                return makeState(TAG_CLOSE, match, ignoreAll);
+            case '"':
+                ignoreAll = !ignoreAll;
             // without break, it's not a mistake
             default:
                 match[ATTRIBUTES] += sym;
-                return makeState(READ_ATTRIBUTES, match, openedBracketCounter);
+                return makeState(READ_ATTRIBUTES, match, ignoreAll);
         }
     }
 
@@ -258,11 +258,11 @@ var kMarkupPattern = (function () {
     function isSelfClosing(match, sym) {
         if (sym === '>') {
             match[SELF_CLOSING_CHAR] = '/';
-            return makeState(TAG_CLOSE, match, 0);
+            return makeState(TAG_CLOSE, match);
         }
 
         match[ATTRIBUTES] += '/' + sym;
-        return makeState(READ_ATTRIBUTES, match, 1);
+        return makeState(READ_ATTRIBUTES, match);
     }
 
     /**
@@ -275,7 +275,7 @@ var kMarkupPattern = (function () {
         lastIndex = index;
         match[TAG_FULL] = str.slice(match['index'], index);
 
-        return makeState(INITIAL, match, 0);
+        return makeState(INITIAL, match);
     }
 
     return {
@@ -284,7 +284,7 @@ var kMarkupPattern = (function () {
             var state = {
                 status: INITIAL,
                 match: ['', '', '', '', ''],
-                openedBracketCounter: 0
+                ignoreAll: false
             };
             state.match['input'] = str;
 
@@ -300,7 +300,7 @@ var kMarkupPattern = (function () {
                         state = readTagName(state.match, str[i]);
                         break;
                     case READ_ATTRIBUTES:
-                        state = readAttributes(state.match, str[i], state.openedBracketCounter);
+                        state = readAttributes(state.match, str[i], state.ignoreAll);
                         break;
                     case IS_SELF_CLOSING:
                         state = isSelfClosing(state.match, str[i]);
