@@ -42,6 +42,16 @@ describe('HTML Parser', function() {
 
     });
 
+      it('should parse sme tags and return root element', function() {
+          var root = parseHTML('<div><div ng-reflect-src="<svg bla=&quotblabla"><a></a></div></div>');
+
+          var div = new HTMLElement('div', {}, '');
+          var div2 = div.appendChild(new HTMLElement('div', {}, 'ng-reflect-src=\"<svg bla=&quotblabla\"'));
+          var a = div2.appendChild(new HTMLElement('a', {}, ''));
+
+          root.firstChild.should.eql(div);
+      });
+
     it('should parse "<div><a><img/></a><p></p></div>" and return root element', function() {
 
       var root = parseHTML('<div><a><img/></a><p></p></div>');
