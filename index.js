@@ -339,7 +339,14 @@ var kSelfClosingElements = {
     br: true,
     hr: true,
     wbr: true,
-    col: true
+    col: true,
+    source: true,
+    base: true,
+    param: true,
+    command: true,
+    embed: true,
+    keygen: true,
+    track: true
 };
 var kElementsClosedByOpening = {
     li: {li: true},
